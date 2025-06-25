@@ -1,0 +1,122 @@
+version: '3.8'
+
+services:
+  # === PostgreSQL: Źródło danych ===
+  postgres_source:
+    image: postgres:13
+    container_name: postgres_source
+    restart: always
+    environment:
+      POSTGRES_USER: source_user
+      POSTGRES_PASSWORD: source_pass
+      POSTGRES_DB: source_db
+    ports:
+      - "5433:5432"  # lokalny port 5433 przekierowany na 5432 w kontenerze
+    volumes:
+      - pg_source_data:/var/lib/postgresql/data
+
+  # === PostgreSQL: Hurtownia danych (symulacja Redshift) ===
+  postgres_warehouse:
+    image: postgres:13
+    container_name: postgres_warehouse
+    restart: always
+    environment:
+      POSTGRES_USER: wh_user
+      POSTGRES_PASSWORD: wh_pass
+      POSTGRES_DB: warehouse_db
+    ports:
+      - "5434:5432"
+    volumes:
+      - pg_warehouse_data:/var/lib/postgresql/data
+
+  # === Airbyte ===
+  airbyte-server:
+    image: airbyte/airbyte:latest
+    container_name: airbyte-server
+    ports:
+      - "8000:8000"  # UI
+    environment:
+      - AIRBYTE_ROLE=server
+    volumes:
+      - airbyte_data:/data
+    depends_on:
+      - airbyte-server
+      - airbyte-db
+
+  airbyte-worker:
+    image: airbyte/airbyte:latest
+    container_name: airbyte-worker
+    environment:
+      - AIRBYTE_ROLE=worker
+    volumes:
+      - airbyte_data:/data
+    depends_on:
+      - airbyte-server
+
+  airbyte-db:
+    image: postgres:13
+    container_name: airbyte-db
+    restart: always
+    environment:
+      POSTGRES_USER: airbyte
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: airbyte
+    volumes:
+      - airbyte_db_data:/var/lib/postgresql/data
+
+  # === dbt ===
+  dbt:
+    image: ghcr.io/dbt-labs/dbt-postgres:latest
+    container_name: dbt
+    volumes:
+      - ./dbt:/usr/app
+    working_dir: /usr/app
+    entrypoint: ["tail", "-f", "/dev/null"]  # tymczasowo, żeby móc wejść do kontenera ręcznie
+
+  # === Airflow ===
+  airflow-webserver:
+    image: apache/airflow:2.7.0
+    container_name: airflow-webserver
+    restart: always
+    depends_on:
+      - airflow-db
+    environment:
+      AIRFLOW__CORE__EXECUTOR: SequentialExecutor
+      AIRFLOW__CORE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@airflow-db:5432/airflow
+      AIRFLOW__WEBSERVER__PORT: 8080
+    volumes:
+      - ./airflow/dags:/opt/airflow/dags
+    ports:
+      - "8080:8080"
+    command: webserver
+
+  airflow-scheduler:
+    image: apache/airflow:2.7.0
+    container_name: airflow-scheduler
+    restart: always
+    depends_on:
+      - airflow-webserver
+    environment:
+      AIRFLOW__CORE__EXECUTOR: SequentialExecutor
+      AIRFLOW__CORE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@airflow-db:5432/airflow
+    volumes:
+      - ./airflow/dags:/opt/airflow/dags
+    command: scheduler
+
+  airflow-db:
+    image: postgres:13
+    container_name: airflow-db
+    restart: always
+    environment:
+      POSTGRES_USER: airflow
+      POSTGRES_PASSWORD: airflow
+      POSTGRES_DB: airflow
+    volumes:
+      - airflow_db_data:/var/lib/postgresql/data
+
+volumes:
+  pg_source_data:
+  pg_warehouse_data:
+  airbyte_data:
+  airbyte_db_data:
+  airflow_db_data:
