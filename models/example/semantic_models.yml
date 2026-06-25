@@ -1,32 +1,56 @@
-semantic_models:
-  - name: customers_semantic
-    description: "Semantic model for customers from Snowflake sample data."
-    model: ref('Moj_test_2')
+version: 2
 
-    entities:
-      - name: customer
-        type: primary
-        expr: c_custkey
+models:
+  - name: Moj_test_2
+    description: "Customer table based on Snowflake sample data."
 
-    dimensions:
-      - name: market_segment
-        type: categorical
-        expr: c_mktsegment
+    semantic_model:
+      enabled: true
+      name: customers_semantic
 
-      - name: nation_key
-        type: categorical
-        expr: c_nationkey
+    columns:
+      - name: C_CUSTKEY
+        description: "Customer key."
+        entity:
+          type: primary
+          name: customer
 
-    measures:
-      - name: customer_count
-        description: "Number of customers."
+      - name: C_NAME
+        description: "Customer name."
+        dimension:
+          type: categorical
+
+      - name: C_NATIONKEY
+        description: "Nation key."
+        dimension:
+          type: categorical
+
+      - name: C_MKTSEGMENT
+        description: "Market segment."
+        dimension:
+          type: categorical
+
+      - name: C_ACCTBAL
+        description: "Customer account balance."
+
+    metrics:
+      - name: customers_count
+        description: "Total number of customers."
+        type: simple
+        label: Customers Count
         agg: count
-        expr: c_custkey
+        expr: C_CUSTKEY
 
-metrics:
-  - name: customers_count
-    description: "Total number of customers."
-    type: simple
-    label: Customers Count
-    type_params:
-      measure: customer_count
+      - name: total_account_balance
+        description: "Total account balance across customers."
+        type: simple
+        label: Total Account Balance
+        agg: sum
+        expr: C_ACCTBAL
+
+      - name: average_account_balance
+        description: "Average account balance per customer."
+        type: simple
+        label: Average Account Balance
+        agg: average
+        expr: C_ACCTBAL
