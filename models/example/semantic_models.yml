@@ -1,0 +1,32 @@
+semantic_models:
+  - name: customers_semantic
+    description: "Semantic model for customers from Snowflake sample data."
+    model: ref('Moj_test_2')
+
+    entities:
+      - name: customer
+        type: primary
+        expr: c_custkey
+
+    dimensions:
+      - name: market_segment
+        type: categorical
+        expr: c_mktsegment
+
+      - name: nation_key
+        type: categorical
+        expr: c_nationkey
+
+    measures:
+      - name: customer_count
+        description: "Number of customers."
+        agg: count
+        expr: c_custkey
+
+metrics:
+  - name: customers_count
+    description: "Total number of customers."
+    type: simple
+    label: Customers Count
+    type_params:
+      measure: customer_count
